@@ -9,7 +9,7 @@ export type AuthUser = ImportedUserType;
 // Potentially define a simple Shift interface here if not already available
 interface ActiveShiftInfo {
   id: string;
-  created_at: string; 
+  created_at: string;
   ip_address?: string | null; // Optional: if you want to store/use it in the frontend state
 }
 
@@ -32,7 +32,7 @@ export interface AuthState {
   deviceAuthStatus: { requestId: number | null, userId: string | null, needsApproval: boolean };
   setUser: (user: AuthUser | null) => void;
   signIn: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>; 
+  signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   fetchAndSetUserShiftState: () => Promise<void>;
   startNewShift: () => Promise<string | null>;
@@ -79,7 +79,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     } catch (error: any) {
       // Ensure loading is false and user is null if signIn itself fails
-      set({ user: null, loading: false, conflictingCashierInfo: null }); 
+      set({ user: null, loading: false, conflictingCashierInfo: null });
       throw error;
     }
   },
@@ -100,7 +100,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, active') 
+        .select('id, active')
         .eq('email', email)
         .single();
 
@@ -108,7 +108,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error('No account found with this email in our system.');
       }
 
-      if (!userData.active) { 
+      if (!userData.active) {
         throw new Error('This account has been deactivated. Please contact your administrator.');
       }
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
@@ -127,7 +127,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       throw new Error('An unexpected error occurred during password reset.');
     }
   },
-  
+
   fetchAndSetUserShiftState: async () => {
     const currentUser = get().user;
     if (!currentUser) {
@@ -206,7 +206,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isStartingShift: false });
         return null;
       }
-      
+
       if (!rpcResponse || !rpcResponse.status) {
           console.error('Invalid response from handle_start_shift_attempt RPC:', rpcResponse);
           toast.error('Unexpected server response when starting shift.');
@@ -253,7 +253,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           });
           toast.success('New shift started!');
           return rpcResponse.shift_id;
-        
+
         case 'error':
             console.error('RPC returned error status:', rpcResponse.message);
             toast.error(`Shift start failed: ${rpcResponse.message || 'Unknown server error'}`);
@@ -283,17 +283,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       async (event, session) => {
         console.log('[AuthStore] Auth event RECEIVED:', event, 'Session object:', session, 'isProcessingAlready:', isProcessingAuthEvent.current);
 
-        if (isProcessingAuthEvent.current && event !== 'SIGNED_OUT') { 
+        if (isProcessingAuthEvent.current && event !== 'SIGNED_OUT') {
           console.log('[AuthStore] Auth event IGNORED (already processing another event):', event);
           return;
         }
-        
+
         isProcessingAuthEvent.current = true;
         console.log('[AuthStore] Auth event STARTED PROCESSING:', event);
         const currentStoreState = get();
 
         if (currentStoreState.conflictingCashierInfo) {
-          set({ conflictingCashierInfo: null }); 
+          set({ conflictingCashierInfo: null });
         }
 
         if (event === 'SIGNED_IN' && session) {
@@ -324,14 +324,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         try {
           if (session && session.user) {
             console.log('[AuthStore] Processing session for user ID:', session.user.id, 'Event:', event);
-            
+
             let initialProcessingForThisUserSignIn = !currentStoreState.user || currentStoreState.user.id !== session.user.id;
             if (initialProcessingForThisUserSignIn || event === 'USER_UPDATED') {
                 console.log('[AuthStore] Setting global loading: true (Initial process for this user ID, or USER_UPDATED).');
                 set(state => ({ ...state, loading: true }));
             } else if (event === 'SIGNED_IN' && currentStoreState.user && currentStoreState.user.id === session.user.id) {
                  console.log('[AuthStore] SIGNED_IN for existing user (revalidation). Global loading NOT set true here; component loaders will handle UI.');
-            } 
+            }
 
             console.log('[AuthStore] Entering main try block for profile/device validation.');
             console.log('[AuthStore] PRE-PROFILE FETCH CHECKPOINT. Session user ID:', session?.user?.id);
@@ -357,7 +357,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 .eq('id', session.user.id)
                 .maybeSingle();
 
-              const timeoutPromise = new Promise((_, reject) => 
+              const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Profile fetch timed out')), PROFILE_FETCH_TIMEOUT)
               );
 
@@ -369,12 +369,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               console.error('[AuthStore] Profile fetch: Promise.race or timeout error:', raceError, 'Event:', event);
               profileError = raceError;
             }
-            
+
             console.log('[AuthStore] Profile fetch completed. User ID from session for this fetch attempt:', session?.user?.id, 'Error object:', JSON.stringify(profileError, null, 2) , 'Data object:', JSON.stringify(userProfileData, null, 2), 'Event:', event);
 
             if (profileError || !userProfileData) {
               console.error(
-                '[AuthStore] Error fetching user profile (or timeout). Session User ID:', 
+                '[AuthStore] Error fetching user profile (or timeout). Session User ID:',
                 session?.user?.id,
                 'Full Profile Error:', JSON.stringify(profileError, Object.getOwnPropertyNames(profileError || {}), 2),
                 'User Profile Data:', JSON.stringify(userProfileData, null, 2)
@@ -389,7 +389,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             if (userProfileData) {
               const fetchedUserObject = userProfileData as AuthUser;
-              let newDeviceAuthStatus = { ...currentStoreState.deviceAuthStatus }; 
+              let newDeviceAuthStatus = { ...currentStoreState.deviceAuthStatus };
               let deviceCheckError = false;
 
               try {
@@ -399,9 +399,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
                 console.log('[AuthStore] DeviceValidation: Attempting supabase.functions.invoke(\'validate-device\'). Event:', event);
                 const { data: validationResponse, error: functionError } = await supabase.functions.invoke('validate-device', {
-                  body: { 
-                    fingerprint: fpData.visitorId, 
-                    deviceDescription: fpData.deviceDescription 
+                  body: {
+                    fingerprint: fpData.visitorId,
+                    deviceDescription: fpData.deviceDescription
                   },
                 });
                 console.log('[AuthStore] DeviceValidation: supabase.functions.invoke(\'validate-device\') COMPLETED. Event:', event);
@@ -442,18 +442,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
               const userProfileEssentiallyTheSame = currentStoreState.user && JSON.stringify(currentStoreState.user) === JSON.stringify(fetchedUserObject);
               const deviceStatusEssentiallyTheSame = JSON.stringify(currentStoreState.deviceAuthStatus) === JSON.stringify(newDeviceAuthStatus);
-              
+
               console.log('[AuthStore] Comparison - User Profile Same:', userProfileEssentiallyTheSame, 'Device Status Same:', deviceStatusEssentiallyTheSame);
               console.log('[AuthStore] Current User ID:', currentStoreState.user?.id, 'Fetched User ID:', fetchedUserObject.id, 'Event:', event);
 
-              if (currentStoreState.user && 
-                  currentStoreState.user.id === fetchedUserObject.id && 
-                  userProfileEssentiallyTheSame && 
+              if (currentStoreState.user &&
+                  currentStoreState.user.id === fetchedUserObject.id &&
+                  userProfileEssentiallyTheSame &&
                   deviceStatusEssentiallyTheSame &&
-                  event !== 'USER_UPDATED' 
+                  event !== 'USER_UPDATED'
                  ) {
                 console.log('[AuthStore] Data identical (and not USER_UPDATED). Ensuring loading: false.');
-                if (currentStoreState.loading) set({ loading: false }); 
+                if (currentStoreState.loading) set({ loading: false });
                 else console.log('[AuthStore] Global loading was already false.');
               } else {
                 console.log('[AuthStore] Data changed, initial, or USER_UPDATED. Updating user and device status in store, loading:false.');
@@ -473,7 +473,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({ user: null, loading: false, activeShift: null, deviceAuthStatus: { requestId: null, userId: null, needsApproval: false } });
           } else if (event === 'INITIAL_SESSION') {
             console.log('[AuthStore] Event: INITIAL_SESSION');
-            if (!session) { 
+            if (!session) {
                console.log('[AuthStore] INITIAL_SESSION: No user in session. Setting user=null, loading=false.');
               set({ user: null, loading: false, deviceAuthStatus: { requestId: null, userId: null, needsApproval: false } });
             } else {
@@ -483,7 +483,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           } else {
             console.log('[AuthStore] Unhandled or already covered Auth Event:', event, 'Session:', session, 'Current User:', currentStoreState.user);
             if (!session && !currentStoreState.user && currentStoreState.loading) {
-              set({ loading: false }); 
+              set({ loading: false });
               console.log('[AuthStore] Unhandled event, no session, no user, was loading. Set loading:false.');
             }
           }
@@ -507,13 +507,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
 // Example of how to get user IP - consider security and privacy implications
 // async function getUserIP() {
-//   try {
-//     const response = await fetch('https://api.ipify.org?format=json');
-//     if (!response.ok) return null;
-//     const data = await response.json();
-//     return data.ip;
-//   } catch (error) {
-//     console.warn('Could not fetch user IP:', error);
-//     return null;
-//   }
+//  try {
+//    const response = await fetch('https://api.ipify.org?format=json');
+//    if (!response.ok) return null;
+//    const data = await response.json();
+//    return data.ip;
+//  } catch (error) {
+//    console.warn('Could not fetch user IP:', error);
+//    return null;
+//  }
 // }
