@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { User as ImportedUserType } from '../types';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
-import { getFingerprint } from '../lib/fingerprint';
+import { getFingerprint } from '../lib/fingerprint'; // Still imported, though getFingerprint() will be commented out
 
 export type AuthUser = ImportedUserType;
 
@@ -165,7 +165,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // Major overhaul for startNewShift
   startNewShift: async (): Promise<string | null> => {
     const currentUser = get().user;
     if (!currentUser || !currentUser.id || !currentUser.role) {
@@ -218,7 +217,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       switch (rpcResponse.status) {
         case 'another_cashier_active':
           set({
-            activeShift: null, // Ensure no active shift is set for the current user
+            activeShift: null, 
             conflictingCashierInfo: {
               active_cashier_name: rpcResponse.active_cashier_name,
               active_shift_created_at: rpcResponse.active_shift_created_at,
@@ -226,7 +225,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             },
             isStartingShift: false,
           });
-          return null; // Indicate shift was not started for current user
+          return null; 
 
         case 'existing_shift_resumed':
           set({
@@ -305,7 +304,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             });
             if (setError) {
               console.error('[AuthStore] Error from explicit supabase.auth.setSession():', setError, 'Event:', event);
-              // Decide if we should proceed or logout if setSession fails critically
             } else {
               console.log('[AuthStore] Explicit supabase.auth.setSession() successful.', 'Event:', event);
             }
@@ -336,7 +334,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             console.log('[AuthStore] Entering main try block for profile/device validation.');
             console.log('[AuthStore] PRE-PROFILE FETCH CHECKPOINT. Session user ID:', session?.user?.id);
 
-            // New: Check current Supabase client session state (simplified logging)
             const { data: { session: currentInternalSessionObjForLog }, error: getSessionErrorForLog } = await supabase.auth.getSession();
             if (getSessionErrorForLog) {
               console.error('[AuthStore] Error calling supabase.auth.getSession() during log attempt:', getSessionErrorForLog, 'Event:', event);
@@ -347,7 +344,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             let userProfileData: AuthUser | null = null;
             let profileError: any = null;
-            const PROFILE_FETCH_TIMEOUT = 60000; // Increased to 60 seconds for testing
+            const PROFILE_FETCH_TIMEOUT = 60000; 
 
             try {
               console.log('[AuthStore] Profile fetch: Attempting Promise.race. Session User ID:', session?.user?.id, 'Event:', event);
@@ -392,6 +389,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               let newDeviceAuthStatus = { ...currentStoreState.deviceAuthStatus };
               let deviceCheckError = false;
 
+              // --- START OF TEMPORARILY BYPASSED FINGERPRINTING ---
+              // TODO: Revisit and re-enable fingerprinting. Temporarily bypassing.
+              console.log('[AuthStore] DeviceValidation: TEMPORARILY BYPASSED. Assuming device is approved. Event:', event);
+              newDeviceAuthStatus = { requestId: null, userId: null, needsApproval: false };
+              deviceCheckError = false; // Ensure this is explicitly false for the bypass
+
+              /*
+              // Original Fingerprinting Code - Commented out for now:
               try {
                 console.log('[AuthStore] DeviceValidation: Starting... Attempting getFingerprint. Event:', event);
                 const fpData = await getFingerprint();
@@ -405,7 +410,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                   },
                 });
                 console.log('[AuthStore] DeviceValidation: supabase.functions.invoke(\'validate-device\') COMPLETED. Event:', event);
-                console.log('[AuthStore] DeviceValidation: invoke completed.'); // This line is slightly redundant now but okay
+                console.log('[AuthStore] DeviceValidation: invoke completed.');
 
                 if (functionError) {
                   console.error("[AuthStore] DeviceValidation: Error calling function:", functionError);
@@ -432,16 +437,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 toast.error(deviceValidationError.message || "Critical error during device check. Please log in again.");
                 deviceCheckError = true;
               }
-              console.log('[AuthStore] DeviceValidation: Finished. Error status:', deviceCheckError);
+              */
+              // --- END OF TEMPORARILY BYPASSED FINGERPRINTING ---
+              
+              console.log('[AuthStore] DeviceValidation: Finished (Bypassed). Error status:', deviceCheckError);
 
-              if (deviceCheckError) {
+              if (deviceCheckError) { 
                 await supabase.auth.signOut();
                 set({ user: null, loading: false, activeShift: null, deviceAuthStatus: { requestId: null, userId: null, needsApproval: false } });
                 return;
               }
 
               const userProfileEssentiallyTheSame = currentStoreState.user && JSON.stringify(currentStoreState.user) === JSON.stringify(fetchedUserObject);
-              const deviceStatusEssentiallyTheSame = JSON.stringify(currentStoreState.deviceAuthStatus) === JSON.stringify(newDeviceAuthStatus);
+              const deviceStatusEssentiallyTheSame = JSON.stringify(currentStoreState.deviceAuthStatus) === JSON.stringify(newDeviceAuthStatus); 
 
               console.log('[AuthStore] Comparison - User Profile Same:', userProfileEssentiallyTheSame, 'Device Status Same:', deviceStatusEssentiallyTheSame);
               console.log('[AuthStore] Current User ID:', currentStoreState.user?.id, 'Fetched User ID:', fetchedUserObject.id, 'Event:', event);
@@ -460,7 +468,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 set({
                   user: fetchedUserObject,
                   loading: false,
-                  deviceAuthStatus: newDeviceAuthStatus,
+                  deviceAuthStatus: newDeviceAuthStatus, 
                 });
               }
             } else {
@@ -504,16 +512,3 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     };
   },
 }));
-
-// Example of how to get user IP - consider security and privacy implications
-// async function getUserIP() {
-//  try {
-//    const response = await fetch('https://api.ipify.org?format=json');
-//    if (!response.ok) return null;
-//    const data = await response.json();
-//    return data.ip;
-//  } catch (error) {
-//    console.warn('Could not fetch user IP:', error);
-//    return null;
-//  }
-// }
