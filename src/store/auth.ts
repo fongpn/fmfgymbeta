@@ -297,26 +297,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         if (event === 'SIGNED_IN' && session) {
           console.log('[AuthStore] Attempting explicit supabase.auth.setSession() for SIGNED_IN event with new token.', 'Event:', event);
-          // console.log('[AuthStore] PRE-AWAIT: About to call supabase.auth.setSession.'); // Example of more detailed logging
+          console.log('[AuthStore] PRE-AWAIT: About to call supabase.auth.setSession.'); // DETAILED LOGGING
           try {
             const { error: setError } = await supabase.auth.setSession({
               access_token: session.access_token,
               refresh_token: session.refresh_token,
             });
-            // console.log('[AuthStore] POST-AWAIT: supabase.auth.setSession call completed.'); // Example of more detailed logging
+            console.log('[AuthStore] POST-AWAIT: supabase.auth.setSession call completed.'); // DETAILED LOGGING
             if (setError) {
               console.error('[AuthStore] Error from explicit supabase.auth.setSession():', setError, 'Event:', event);
             } else {
               console.log('[AuthStore] Explicit supabase.auth.setSession() successful.', 'Event:', event);
             }
           } catch (e) {
-            console.error('[AuthStore] Exception during explicit supabase.auth.setSession():', e, 'Event:', event);
+            console.error('[AuthStore] CATCH BLOCK: Exception during explicit supabase.auth.setSession():', e, 'Event:', event);
           }
         }
 
         if (event === 'PASSWORD_RECOVERY') {
           set({ loading: false });
-          isProcessingAuthEvent.current = false;
+          isProcessingAuthEvent.current = false; // Ensure flag is reset here too
           console.log('[AuthStore] Auth event FINISHED PROCESSING (PASSWORD_RECOVERY):', event);
           return;
         }
@@ -383,10 +383,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 console.error('[AuthStore] Error during signOut after profile fetch failure:', signOutError);
               });
               set({ user: null, loading: false, activeShift: null, deviceAuthStatus: { requestId: null, userId: null, needsApproval: false }, conflictingCashierInfo: null });
-              return;
-            }
-
-            if (userProfileData) {
+              // No return here, let finally block handle isProcessingAuthEvent
+            } else if (userProfileData) { // Changed from `if (userProfileData)` to `else if (userProfileData)`
               const fetchedUserObject = userProfileData as AuthUser;
               let newDeviceAuthStatus = { ...currentStoreState.deviceAuthStatus };
               let deviceCheckError = false;
@@ -447,37 +445,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               if (deviceCheckError) {
                 await supabase.auth.signOut();
                 set({ user: null, loading: false, activeShift: null, deviceAuthStatus: { requestId: null, userId: null, needsApproval: false } });
-                return;
-              }
-
-              const userProfileEssentiallyTheSame = currentStoreState.user && JSON.stringify(currentStoreState.user) === JSON.stringify(fetchedUserObject);
-              const deviceStatusEssentiallyTheSame = JSON.stringify(currentStoreState.deviceAuthStatus) === JSON.stringify(newDeviceAuthStatus);
-
-              console.log('[AuthStore] Comparison - User Profile Same:', userProfileEssentiallyTheSame, 'Device Status Same:', deviceStatusEssentiallyTheSame);
-              console.log('[AuthStore] Current User ID:', currentStoreState.user?.id, 'Fetched User ID:', fetchedUserObject.id, 'Event:', event);
-
-              if (currentStoreState.user &&
-                  currentStoreState.user.id === fetchedUserObject.id &&
-                  userProfileEssentiallyTheSame &&
-                  deviceStatusEssentiallyTheSame &&
-                  event !== 'USER_UPDATED'
-                 ) {
-                console.log('[AuthStore] Data identical (and not USER_UPDATED). Ensuring loading: false.');
-                if (currentStoreState.loading) set({ loading: false });
-                else console.log('[AuthStore] Global loading was already false.');
+                // No return here, let finally block handle isProcessingAuthEvent
               } else {
-                console.log('[AuthStore] Data changed, initial, or USER_UPDATED. Updating user and device status in store, loading:false.');
-                set({
-                  user: fetchedUserObject,
-                  loading: false,
-                  deviceAuthStatus: newDeviceAuthStatus,
-                });
+                  const userProfileEssentiallyTheSame = currentStoreState.user && JSON.stringify(currentStoreState.user) === JSON.stringify(fetchedUserObject);
+                  const deviceStatusEssentiallyTheSame = JSON.stringify(currentStoreState.deviceAuthStatus) === JSON.stringify(newDeviceAuthStatus);
+
+                  console.log('[AuthStore] Comparison - User Profile Same:', userProfileEssentiallyTheSame, 'Device Status Same:', deviceStatusEssentiallyTheSame);
+                  console.log('[AuthStore] Current User ID:', currentStoreState.user?.id, 'Fetched User ID:', fetchedUserObject.id, 'Event:', event);
+
+                  if (currentStoreState.user &&
+                      currentStoreState.user.id === fetchedUserObject.id &&
+                      userProfileEssentiallyTheSame &&
+                      deviceStatusEssentiallyTheSame &&
+                      event !== 'USER_UPDATED'
+                     ) {
+                    console.log('[AuthStore] Data identical (and not USER_UPDATED). Ensuring loading: false.');
+                    if (currentStoreState.loading) set({ loading: false });
+                    else console.log('[AuthStore] Global loading was already false.');
+                  } else {
+                    console.log('[AuthStore] Data changed, initial, or USER_UPDATED. Updating user and device status in store, loading:false.');
+                    set({
+                      user: fetchedUserObject,
+                      loading: false,
+                      deviceAuthStatus: newDeviceAuthStatus,
+                    });
+                  }
               }
-            } else {
-              console.warn('[AuthStore] User profile not found for a valid session. Logging out.');
-              await supabase.auth.signOut();
-              set({ user: null, loading: false, activeShift: null, deviceAuthStatus: { requestId: null, userId: null, needsApproval: false } });
             }
+            // Removed the `else` that was here for "User profile not found" as it's covered by "profileError || !userProfileData"
           } else if (event === 'SIGNED_OUT') {
             console.log('[AuthStore] Event: SIGNED_OUT. Clearing user state.');
             set({ user: null, loading: false, activeShift: null, deviceAuthStatus: { requestId: null, userId: null, needsApproval: false } });
@@ -487,7 +482,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                console.log('[AuthStore] INITIAL_SESSION: No user in session. Setting user=null, loading=false.');
               set({ user: null, loading: false, deviceAuthStatus: { requestId: null, userId: null, needsApproval: false } });
             } else {
-               set(state => ({...state, loading: true }));
+               set(state => ({...state, loading: true })); // Keep loading true, wait for SIGNED_IN
                console.log('[AuthStore] INITIAL_SESSION: Session exists. Expecting subsequent SIGNED_IN. Set loading:true.');
             }
           } else {
@@ -500,16 +495,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           console.log('[AuthStore] Main try block successfully COMPLETED PROCESSING for event:', event);
         } catch (e: any) {
             console.error('[AuthStore] CATASTROPHIC error in onAuthStateChange try block:', e.message, e.stack, e, 'Event:', event);
-            await supabase.auth.signOut(); // Attempt to sign out to clear state
-            // Ensure loading is false even in catastrophic error to avoid infinite loading
-            set(state => ({ 
-              ...state, // Keep existing state if possible
-              user: null, 
-              loading: false, 
-              activeShift: null, 
-              deviceAuthStatus: { requestId: null, userId: null, needsApproval: false }, 
-              conflictingCashierInfo: null 
-            }));
+            // Try to sign out to clear state, but don't await if it might also hang
+            supabase.auth.signOut().catch(err => console.error('[AuthStore] SignOut during catastrophic error failed:', err));
+            set({ // Ensure loading is false even in catastrophic error
+              user: null,
+              loading: false,
+              activeShift: null,
+              deviceAuthStatus: { requestId: null, userId: null, needsApproval: false },
+              conflictingCashierInfo: null
+            });
         } finally {
             console.log('[AuthStore] Entering FINALLY block for event:', event, '. isProcessingAuthEvent current value BEFORE reset:', isProcessingAuthEvent.current);
             isProcessingAuthEvent.current = false;
