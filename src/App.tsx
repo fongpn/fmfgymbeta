@@ -3,7 +3,29 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { Toaster } from 'react-hot-toast';
 import LoginPage from './pages/login';
 import DashboardLayout from './layouts/DashboardLayout';
-// ... other imports
+import MemberValidation from './pages/member-validation';
+import CouponValidation from './pages/coupon-validation';
+import MemberList from './pages/members/list';
+import MemberDetails from './pages/members/details';
+import NewMember from './pages/members/new';
+import EditMember from './pages/members/edit';
+import RenewMembership from './pages/members/renew';
+import WalkInList from './pages/walk-ins/list';
+import POSPage from './pages/pos';
+import AdminPanel from './pages/admin';
+import EndShiftPage from './pages/end-shift';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
+import CouponsList from './pages/coupons/list';
+import NewCoupon from './pages/coupons/new';
+import EditCoupon from './pages/coupons/edit';
+import ReportsPanel from './pages/reports';
+import ResetPassword from './pages/reset-password';
+import DailySummaryPage from './pages/admin/daily-summary';
+import MemberImportPage from './pages/admin/MemberImportPage';
+import WaitingForApprovalPage from './pages/WaitingForApprovalPage';
+import DeviceRequestsPage from './pages/admin/DeviceRequestsPage';
+import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 import { useAuthStore, AuthState } from './store/auth';
 import { User as AppUser } from './types';
 
@@ -44,7 +66,7 @@ const InnerAppRouter = ({ user, deviceAuthStatus, clearDeviceAuthStatus }: { use
   console.log(`[InnerAppRouter] Rendering. Path: "${location.pathname}", User ID: ${user ? user.id : 'null'}, Device Needs Approval: ${deviceAuthStatus?.needsApproval}, RequestID: ${deviceAuthStatus?.requestId}, Location state:`, JSON.stringify(location.state));
 
   // --- START OF TEMPORARY MODIFICATION IN App.tsx ---
-  // TODO: Revisit and re-enable device approval redirection. Temporarily bypassing.
+  // TODO: Revisit and re-enable device approval redirection if needed. Temporarily bypassing.
   /*
   // Priority 0: Device Awaiting Approval (takes precedence over everything)
   if (
@@ -55,6 +77,9 @@ const InnerAppRouter = ({ user, deviceAuthStatus, clearDeviceAuthStatus }: { use
     location.pathname !== '/waiting-for-approval' // Prevent re-navigation if already on the page
   ) {
     console.log('[InnerAppRouter] Branch 0: Device Awaiting Approval. Navigating to /waiting-for-approval from path:', location.pathname, 'Request ID:', deviceAuthStatus.requestId);
+    // Important: Clear the status immediately after deciding to navigate to prevent loops
+    // However, navigate is a side effect. Clearing should happen after navigation is committed or in WaitingForApprovalPage.
+    // For now, let InnerAppRouter trigger navigation. WaitingForApprovalPage can clear it on mount.
     return (
       <Routes>
         <Route
@@ -74,10 +99,12 @@ const InnerAppRouter = ({ user, deviceAuthStatus, clearDeviceAuthStatus }: { use
   // aims to prevent automatic redirection to it.
   if (location.pathname === '/waiting-for-approval') {
     console.log('[InnerAppRouter] Branch 1 HIT: Path is /waiting-for-approval. Location state received by InnerAppRouter:', JSON.stringify(location.state));
+    // If we are here, deviceAuthStatus.needsApproval should be false (or Branch 0 would have hit if not commented out).
+    // WaitingForApprovalPage will handle missing location.state by redirecting to /login.
     return (
       <Routes>
         <Route path="/waiting-for-approval" element={<WaitingForApprovalPage />} />
-        <Route path="*" element={<Navigate to="/waiting-for-approval" replace />} />
+        <Route path="*" element={<Navigate to="/waiting-for-approval" replace />} /> {/* Fallback if somehow landed here without state */}
       </Routes>
     );
   }
@@ -85,7 +112,6 @@ const InnerAppRouter = ({ user, deviceAuthStatus, clearDeviceAuthStatus }: { use
   // Priority 2: Handle logged-in user (and not on /waiting-for-approval, and device is not pending approval)
   if (user) {
     console.log('[InnerAppRouter] Branch 2: User exists, path is not /waiting-for-approval, device not pending.');
-    // ... rest of logged-in user routes
     return (
       <Routes>
         <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
@@ -94,7 +120,7 @@ const InnerAppRouter = ({ user, deviceAuthStatus, clearDeviceAuthStatus }: { use
           <Route path="coupons/list" element={<CouponsList />} />
           <Route path="coupons/new" element={<NewCoupon />} />
           <Route path="coupons/edit/:id" element={<EditCoupon />} />
-          
+
           <Route path="members" element={<MemberList />} />
           <Route path="members/:id" element={<MemberDetails />} />
           <Route path="members/:id/edit" element={<EditMember />} />
@@ -114,6 +140,7 @@ const InnerAppRouter = ({ user, deviceAuthStatus, clearDeviceAuthStatus }: { use
             <Route path="admin/*" element={<AdminPanel />} />
           </Route>
         </Route>
+        {/* For a logged-in user, if no other explicitly defined route matches, redirect to dashboard home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
@@ -121,11 +148,11 @@ const InnerAppRouter = ({ user, deviceAuthStatus, clearDeviceAuthStatus }: { use
 
   // Priority 3: Handle logged-out user (and not on /waiting-for-approval)
   console.log('[InnerAppRouter] Branch 3: No user, path is not /waiting-for-approval.');
-  // ... rest of logged-out user routes
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      {/* If a logged-out user somehow lands on any other path, redirect to login */}
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
